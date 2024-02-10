@@ -1,4 +1,5 @@
 {
+  "name": "halogen-canvas",
   "private": true,
   "devDependencies": {
     "parcel": "2.7.0",
@@ -8,7 +9,8 @@
   "scripts": {
     "build": "spago build",
     "test": "spago test",
-    "serve": "parcel dev/index.html --open",
+    "watch": "parcel watch",
+    "serve": "parcel dev/index.html",
     "build-prod": "rm -rf prod && mkdir -p prod && cp dev/index.html prod/ && spago bundle-app --to prod/index.js && parcel build prod/index.html"
   }
 }

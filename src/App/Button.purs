@@ -21,7 +21,6 @@ import Halogen.Canvas (Input)
 import Halogen.Canvas as Canvas
 import Halogen.Canvas.Renderer (Renderer)
 import Halogen.HTML as HH
-import Halogen.HTML.Events as HE
 import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
@@ -47,9 +46,9 @@ type Slots = ( canvas :: forall query. H.Slot query Void Unit )
 render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render _state =
   HH.div_
-    [ 
+    [
       HH.div_
-        [ 
+        [
           HH.slot_ _canvas unit (Canvas.mkComponent cfg) input
         ]
     ]
@@ -63,11 +62,11 @@ render _state =
       }
     -- 100 rectangles moving from left to right:
     rectangles :: Array Picture
-    rectangles = 
-      Array.fromFoldable 
-      $ (\i -> Rect { x: (Int.toNumber i) * 10.0 + 2.0, y: 10.0, width: 6.0, height: 6.0 }) 
+    rectangles =
+      Array.fromFoldable
+      $ (\i -> Rect { x: (Int.toNumber i) * 10.0 + 2.0, y: 10.0, width: 6.0, height: 6.0 })
       <$> range 1 30
-    
+
     w = 300.0
     h = 300.0
 
@@ -100,7 +99,7 @@ renderer =
     onResize :: Vec D2 Number -> Context2D -> Effect Context2D
     onResize _size ctx =
       pure ctx
-      
+
 handleAction :: forall cs o m. Action → H.HalogenM State Action cs o m Unit
 handleAction = case _ of
   Increment -> H.modify_ \st -> st { count = st.count + 1 }
