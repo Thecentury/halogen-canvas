@@ -45,11 +45,6 @@ render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render state =
   HH.div_
     [ 
-      HH.p_
-        [ HH.text $ "You clicked " <> show state.count <> " times" ],
-      HH.button
-        [ HE.onClick \_ -> Increment ]
-        [ HH.text "Click me" ],
       HH.div_
         [ 
           HH.slot_ _canvas unit (Canvas.mkComponent cfg) input
