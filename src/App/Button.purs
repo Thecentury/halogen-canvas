@@ -2,8 +2,8 @@ module App.Button where
 
 import Prelude
 
+import Color (white)
 import CSS (border, px, solid)
-import CSS.Color (black)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Traversable (traverse_)
@@ -64,10 +64,10 @@ render state =
           , Circle
               { x : halve w
               , y : halve h
-              , radius : halve h
+              , radius : h * 0.49
               }
           ]
-      , css : Just (border solid (px 1.0) black)
+      , css : Just (border solid (px 0.0) white)
       , size : vec2 w h
       }
     w = 300.0
@@ -95,7 +95,7 @@ renderer =
       Rect opt ->
         GCanvas.strokeRect ctx opt
 
-      Circle {x, y, radius} -> do
+      Circle { x, y, radius } -> do
         GCanvas.arc ctx {x, y, radius, start : zero, end : pi * 2.0, useCounterClockwise : false }
         GCanvas.stroke ctx
 
