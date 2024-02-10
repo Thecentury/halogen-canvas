@@ -2,27 +2,26 @@ module App.Button where
 
 import Prelude
 
-import Halogen as H
-import Halogen.HTML as HH
-import Halogen.HTML.Events as HE
-import Data.Vec (Vec, vec2)
-import Type.Proxy (Proxy(..))
-import Halogen.Canvas as Canvas
-import Halogen.Canvas.Renderer (Renderer)
-import Graphics.Canvas (Context2D)
 import CSS (border, px, solid)
 import CSS.Color (black)
 import Data.Maybe (Maybe(..))
+import Data.Number (pi)
 import Data.Traversable (traverse_)
 import Data.Typelevel.Num (D2)
+import Data.Vec (Vec, vec2)
 import Effect (Effect)
+import Effect.Class (class MonadEffect)
+import Graphics.Canvas (Context2D)
 import Graphics.Canvas as GCanvas
-import Data.Number (pi)
+import Halogen as H
+import Halogen.Canvas (Input)
+import Halogen.Canvas as Canvas
+import Halogen.Canvas.Renderer (Renderer)
+import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
+import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
-import Halogen.Canvas (Input)
-import Effect.Class (class MonadEffect)
-
 
 type State
   = { count :: Int }
