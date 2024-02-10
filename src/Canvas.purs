@@ -102,7 +102,7 @@ handleAction
   => Config ctx picture
   -> Action picture
   -> H.HalogenM (State ctx picture) (Action picture) () output m Unit
-handleAction cfg@{renderer} = case _ of
+handleAction cfg@{ renderer } = case _ of
   Init -> map (const unit) $ runMaybeT do
     { input } <- H.get
 

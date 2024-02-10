@@ -1,6 +1,7 @@
 { name = "halogen-project"
 , dependencies =
   [ "canvas"
+  , "colors"
   , "console"
   , "css"
   , "effect"
