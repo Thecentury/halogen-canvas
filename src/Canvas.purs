@@ -5,6 +5,8 @@ module Halogen.Canvas
   )
 where
 
+-- https://github.com/thought2/purescript-halogen-canvas/tree/master
+
 import Prelude
 
 import CSS (CSS)

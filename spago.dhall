@@ -1,6 +1,7 @@
 { name = "halogen-project"
 , dependencies =
-  [ "console"
+  [ "canvas"
+  , "console"
   , "css"
   , "effect"
   , "foldable-traversable"
@@ -8,10 +9,12 @@
   , "halogen-css"
   , "integers"
   , "maybe"
+  , "numbers"
   , "prelude"
   , "sized-vectors"
   , "transformers"
   , "typelevel"
+  , "unsafe-coerce"
   , "web-html"
   ]
 , packages = ./packages.dhall
