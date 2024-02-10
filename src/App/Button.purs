@@ -4,6 +4,9 @@ import Prelude
 
 import Color (white)
 import CSS (border, px, solid)
+import Data.Array as Array
+import Data.Int as Int
+import Data.List (range)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Traversable (traverse_)
@@ -42,7 +45,7 @@ component =
 type Slots = ( canvas :: forall query. H.Slot query Void Unit )
 
 render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
-render state =
+render _state =
   HH.div_
     [ 
       HH.div_
@@ -54,25 +57,19 @@ render state =
     cfg = { renderer }
     input :: Input (Array Picture)
     input =
-      { picture :
-          [ Rect
-              { x: halve w
-              , y : halve h
-              , width : halve h * 0.9
-              , height : halve h * 0.9
-              }
-          , Circle
-              { x : halve w
-              , y : halve h
-              , radius : h * 0.49
-              }
-          ]
+      { picture : rectangles
       , css : Just (border solid (px 0.0) white)
       , size : vec2 w h
       }
+    -- 100 rectangles moving from left to right:
+    rectangles :: Array Picture
+    rectangles = 
+      Array.fromFoldable 
+      $ (\i -> Rect { x: (Int.toNumber i) * 10.0 + 2.0, y: 10.0, width: 6.0, height: 6.0 }) 
+      <$> range 1 30
+    
     w = 300.0
     h = 300.0
-    halve x = x / 2.0
 
 data Picture
   = Rect { x :: Number, y :: Number, width :: Number, height :: Number }
@@ -92,14 +89,15 @@ renderer =
 
     renderPicture :: Context2D -> Picture -> Effect Unit
     renderPicture ctx = case _ of
-      Rect opt ->
-        GCanvas.strokeRect ctx opt
+      Rect opt -> do
+        GCanvas.setFillStyle ctx "#000"
+        GCanvas.fillRect ctx opt
 
       Circle { x, y, radius } -> do
         GCanvas.arc ctx {x, y, radius, start : zero, end : pi * 2.0, useCounterClockwise : false }
         GCanvas.stroke ctx
 
-    onResize :: Vec D2 Number -> Context2D-> Effect Context2D
+    onResize :: Vec D2 Number -> Context2D -> Effect Context2D
     onResize _size ctx =
       pure ctx
       
