@@ -2,7 +2,7 @@ module App.Button where
 
 import Prelude
 
-import Color (white)
+import Color (black)
 import CSS (border, px, solid)
 import Data.Array as Array
 import Data.Int as Int
@@ -13,7 +13,8 @@ import Data.Traversable (traverse_)
 import Data.Typelevel.Num (D2)
 import Data.Vec (Vec, vec2)
 import Effect (Effect)
-import Effect.Class (class MonadEffect)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Console as Console
 import Graphics.Canvas (Context2D)
 import Graphics.Canvas as GCanvas
 import Halogen as H
@@ -21,15 +22,23 @@ import Halogen.Canvas (Input)
 import Halogen.Canvas as Canvas
 import Halogen.Canvas.Renderer (Renderer)
 import Halogen.HTML as HH
+import Halogen.HTML.Properties as HP
+import Halogen.HTML.Events as HE
 import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
+import Web.UIEvent.MouseEvent (MouseEvent)
+import Web.UIEvent.MouseEvent (clientX, clientY, screenX, screenY) as Mouse
+import App.MouseEvent (offsetX, offsetY) as Mouse
+import CSS.Geometry (height, width)
+import Halogen.HTML.CSS (style)
 
 type State
   = { count :: Int }
 
-data Action
-  = Increment
+data Action =
+   Increment
+ | MouseMove MouseEvent
 
 _canvas = Proxy :: Proxy "canvas"
 
@@ -47,7 +56,13 @@ render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render _state =
   HH.div_
     [
-      HH.div_
+      HH.div
+        [
+          HE.onMouseMove MouseMove,
+          style $ do
+            width (px 300.0)
+            height (px 300.0)
+        ]
         [
           HH.slot_ _canvas unit (Canvas.mkComponent cfg) input
         ]
@@ -57,7 +72,7 @@ render _state =
     input :: Input (Array Picture)
     input =
       { picture : rectangles
-      , css : Just (border solid (px 0.0) white)
+      , css : Just (border solid (px 0.5) black)
       , size : vec2 w h
       }
     -- 100 rectangles moving from left to right:
@@ -100,6 +115,20 @@ renderer =
     onResize _size ctx =
       pure ctx
 
-handleAction :: forall cs o m. Action → H.HalogenM State Action cs o m Unit
-handleAction = case _ of
-  Increment -> H.modify_ \st -> st { count = st.count + 1 }
+handleAction :: forall cs o m. MonadEffect m => Action → H.HalogenM State Action cs o m Unit
+handleAction Increment = H.modify_ \st -> st { count = st.count + 1 }
+handleAction (MouseMove e) = do
+  liftEffect $ Console.log msg
+  where
+    msg = "Mouse moved. Client: "
+          <> (show $ Mouse.clientX e)
+          <> ", "
+          <> (show $ Mouse.clientY e)
+          <> ". Screen: "
+          <> (show $ Mouse.screenX e)
+          <> ", "
+          <> (show $ Mouse.screenY e)
+          <> ". Offset: "
+          <> (show $ Mouse.offsetX e)
+          <> ", "
+          <> (show $ Mouse.offsetY e)
