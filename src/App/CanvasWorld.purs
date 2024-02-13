@@ -2,16 +2,20 @@ module App.CanvasWorld where
 
 import Prelude
 
-import Color (black)
+import App.MouseEvent (offsetX, offsetY) as Mouse
 import CSS (border, px, solid)
+import CSS.Geometry (height, width) as CSS
+import Color (black)
 import Data.Array as Array
+import Data.Int (rem)
 import Data.Int as Int
+import Data.List as List
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Traversable (traverse_)
 import Data.Typelevel.Num (D2)
 import Data.Vec (Vec, vec2)
 import Effect (Effect)
-import Effect.Class (class MonadEffect)
+import Effect (foreachE) as Effect
+import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
 import Graphics.Canvas (Context2D)
 import Graphics.Canvas as GCanvas
@@ -20,16 +24,13 @@ import Halogen.Canvas (Input)
 import Halogen.Canvas as Canvas
 import Halogen.Canvas.Renderer (Renderer)
 import Halogen.HTML as HH
+import Halogen.HTML.CSS (style)
 import Halogen.HTML.Events as HE
 import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent (altKey) as Mouse
-import App.MouseEvent (offsetX, offsetY) as Mouse
-import CSS.Geometry (height, width) as CSS
-import Halogen.HTML.CSS (style)
-import Data.Int (rem)
 
 data Cell =
   Empty
@@ -51,7 +52,7 @@ indexToCoord i = { x: i `rem` worldWidth, y: i / worldWidth }
 
 cellsWithCoordinates :: State -> Array (WithCoord Cell)
 cellsWithCoordinates world =
-  Array.zipWith (\i cell -> { coord: indexToCoord i, cell }) (Array.range 0 (Array.length world.cells)) world.cells
+  Array.mapWithIndex (\i cell -> { coord: indexToCoord i, cell }) world.cells
 
 cellAt :: Coord -> State -> Maybe Cell
 cellAt coord world = Array.index world.cells (coordIndex coord)
@@ -147,7 +148,7 @@ renderer =
 
     renderWorld :: Context2D -> State -> Effect Unit
     renderWorld ctx world =
-      traverse_ (renderCell ctx) $ cellsWithCoordinates world
+      Effect.foreachE (cellsWithCoordinates world) $ renderCell ctx
 
     renderCell :: Context2D -> WithCoord Cell -> Effect Unit
     renderCell ctx { coord, cell } = case cell of
@@ -155,6 +156,7 @@ renderer =
 
       Concrete -> do
         let rect = coordToRect coord
+--        liftEffect $ Console.log $ "Rendering cell at " <> show coord <> " with rect " <> show rect
         GCanvas.setFillStyle ctx "#000"
         GCanvas.fillRect ctx rect
 
@@ -164,8 +166,11 @@ renderer =
 
 handleAction :: forall cs o m. MonadEffect m => Action → H.HalogenM State Action cs o m Unit
 handleAction (MouseMove e) = do
-  if Mouse.altKey e then
-    let coord = mousePosToCoord e in
+  if Mouse.altKey e then do
+    let coord = mousePosToCoord e
+    liftEffect $ Console.log $
+      "Offset: " <> show (Mouse.offsetX e) <> ", " <> show (Mouse.offsetY e) <>
+      ", coord: " <> show coord <> ", index: " <> show (coordIndex coord)
     H.modify_ \state -> setCell coord Concrete state
   else
     pure unit
