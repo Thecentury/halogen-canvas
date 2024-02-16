@@ -6,6 +6,7 @@ import App.MouseEvent (offsetX, offsetY) as Mouse
 import CSS (border, px, solid)
 import CSS.Geometry (height, width) as CSS
 import Color (black)
+import Control.Monad.Rec.Class (forever)
 import Data.Array as Array
 import Data.Int (rem)
 import Data.Int as Int
@@ -15,6 +16,9 @@ import Data.Typelevel.Num (D2)
 import Data.Vec (Vec, vec2)
 import Effect (Effect)
 import Effect (foreachE) as Effect
+import Effect.Aff (Milliseconds(..))
+import Effect.Aff (delay, forkAff) as Aff
+import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
 import Graphics.Canvas (Context2D)
@@ -26,6 +30,7 @@ import Halogen.Canvas.Renderer (Renderer)
 import Halogen.HTML as HH
 import Halogen.HTML.CSS (style)
 import Halogen.HTML.Events as HE
+import Halogen.Subscription as HS
 import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
@@ -84,17 +89,21 @@ worldHeight :: Int
 worldHeight = Int.round pixelHeight / pixelSize
 
 data Action =
-  MouseMove MouseEvent
+    Initialize
+  | MouseMove MouseEvent
+  | Tick
 
 _canvas = Proxy :: Proxy "canvas"
 
-component :: forall q i o m. MonadEffect m => H.Component q i o m
+component :: forall q i o m. MonadAff m => H.Component q i o m
 component =
   H.mkComponent
     { initialState: \_ ->
       { cells: Array.replicate (worldWidth * worldHeight) Empty },
       render,
-      eval: H.mkEval H.defaultEval { handleAction = handleAction }
+      eval: H.mkEval H.defaultEval
+       { handleAction = handleAction,
+         initialize = Just Initialize }
     }
 
 type Slots = ( canvas :: forall query. H.Slot query Void Unit )
@@ -156,7 +165,6 @@ renderer =
 
       Concrete -> do
         let rect = coordToRect coord
---        liftEffect $ Console.log $ "Rendering cell at " <> show coord <> " with rect " <> show rect
         GCanvas.setFillStyle ctx "#000"
         GCanvas.fillRect ctx rect
 
@@ -164,13 +172,24 @@ renderer =
     onResize _size ctx =
       pure ctx
 
-handleAction :: forall cs o m. MonadEffect m => Action → H.HalogenM State Action cs o m Unit
+handleAction :: forall cs o m. MonadAff m => Action → H.HalogenM State Action cs o m Unit
+handleAction Initialize = do
+    _ <- H.subscribe =<< timer Tick
+    pure unit
+
 handleAction (MouseMove e) = do
   if Mouse.altKey e then do
     let coord = mousePosToCoord e
-    liftEffect $ Console.log $
-      "Offset: " <> show (Mouse.offsetX e) <> ", " <> show (Mouse.offsetY e) <>
-      ", coord: " <> show coord <> ", index: " <> show (coordIndex coord)
     H.modify_ \state -> setCell coord Concrete state
   else
     pure unit
+
+handleAction Tick = pure unit
+
+timer :: forall m a. MonadAff m => a -> m (HS.Emitter a)
+timer val = do
+  { emitter, listener } <- H.liftEffect HS.create
+  _ <- H.liftAff $ Aff.forkAff $ forever do
+    Aff.delay $ Milliseconds 200.0
+    H.liftEffect $ HS.notify listener val
+  pure emitter
