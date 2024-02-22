@@ -129,7 +129,7 @@ pixelHeight :: Number
 pixelHeight = 300.0
 
 pixelSize :: Int
-pixelSize = 3
+pixelSize = 5
 
 worldWidth :: Int
 worldWidth = Int.round pixelWidth / pixelSize
@@ -242,7 +242,7 @@ timer :: forall m a. MonadAff m => a -> m (HS.Emitter a)
 timer val = do
   { emitter, listener } <- H.liftEffect HS.create
   _ <- H.liftAff $ Aff.forkAff $ forever do
-    Aff.delay $ Milliseconds 200.0
+    Aff.delay $ Milliseconds 100.0
     H.liftEffect $ HS.notify listener val
   pure emitter
 
@@ -308,14 +308,25 @@ data Iterator r a = Iterator (Int -> ST r (Maybe a)) (STRef r Int)
 -- | else). If `xs :: Array a`, the standard way to create an iterator over
 -- | `xs` is to use `iterator (xs !! _)`, where `(!!)` comes from `Data.Array`.
 iterator :: forall r a. (Int -> ST r (Maybe a)) -> ST r (Iterator r a)
-iterator f =
-  Iterator f <$> STRef.new 0
+iterator f = Iterator f <$> STRef.new 0
+
+iteratorAt :: forall r a. Int -> (Int -> ST r (Maybe a)) -> ST r (Iterator r a)
+iteratorAt i f = Iterator f <$> STRef.new i
 
 iterateWithIndex :: forall r a. Iterator r a -> (Int -> a -> ST r Unit) -> ST r Unit
 iterateWithIndex iter f = do
   break <- STRef.new false
   ST.while (not <$> STRef.read break) do
     Tuple index mx <- nextWithIndex iter
+    case mx of
+      Just x -> f index x
+      Nothing -> void $ STRef.write true break
+
+iterateReverseWithIndex :: forall r a. Iterator r a -> (Int -> a -> ST r Unit) -> ST r Unit
+iterateReverseWithIndex iter f = do
+  break <- STRef.new false
+  ST.while (not <$> STRef.read break) do
+    Tuple index mx <- prevWithIndex iter
     case mx of
       Just x -> f index x
       Nothing -> void $ STRef.write true break
@@ -327,12 +338,19 @@ nextWithIndex (Iterator f currentIndex) = do
   element <- f i
   pure $ Tuple i element
 
+prevWithIndex :: forall r a. Iterator r a -> ST r (Tuple Int (Maybe a))
+prevWithIndex (Iterator f currentIndex) = do
+  i <- STRef.read currentIndex
+  _ <- STRef.modify (_ - 1) currentIndex
+  element <- f i
+  pure $ Tuple i element
+
 updateWorld :: Array Cell -> Array Cell
 updateWorld cells = withoutGeneration <$> STArray.run do
   let genCells = Current <$> cells
   cellsMut <- STArray.thaw genCells
-  i <- iterator (\ix -> STArray.peek ix cellsMut)
-  iterateWithIndex i \ix cell -> do
+  i <- iteratorAt (Array.length genCells - 1) (\ix -> STArray.peek ix cellsMut)
+  iterateReverseWithIndex i \ix cell -> do
     let coord = indexToCoord ix
     updateCell (attachCoord coord cell) cellsMut
   pure cellsMut
