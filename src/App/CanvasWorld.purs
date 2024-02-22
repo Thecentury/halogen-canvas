@@ -93,13 +93,6 @@ neighbourCoord { x, y } = case _ of
   Bottom -> { x, y: y + 1 }
   BottomRight -> { x: x + 1, y: y + 1 }
 
-neighbour :: forall a . Array a -> Coord -> Neighbour -> Maybe a
-neighbour cells coord n =
-  let
-    coord' = neighbourCoord coord n
-  in
-    Array.index cells (coordIndex coord')
-
 neighbourMut :: forall h a . STArray h a -> Coord -> Neighbour -> ST h (Maybe a)
 neighbourMut cells coord n = do
   let coord' = neighbourCoord coord n
@@ -308,18 +301,6 @@ iterator :: forall r a. (Int -> ST r (Maybe a)) -> ST r (Iterator r a)
 iterator f =
   Iterator f <$> STRef.new 0
 
--- | Perform an action once for each item left in an iterator. If the action
--- | itself also advances the same iterator, `iterate` will miss those items
--- | out.
-iterate :: forall r a. Iterator r a -> (a -> ST r Unit) -> ST r Unit
-iterate iter f = do
-  break <- STRef.new false
-  ST.while (not <$> STRef.read break) do
-    mx <- next iter
-    case mx of
-      Just x -> f x
-      Nothing -> void $ STRef.write true break
-
 iterateWithIndex :: forall r a. Iterator r a -> (Int -> a -> ST r Unit) -> ST r Unit
 iterateWithIndex iter f = do
   break <- STRef.new false
@@ -328,14 +309,6 @@ iterateWithIndex iter f = do
     case mx of
       Just x -> f index x
       Nothing -> void $ STRef.write true break
-
--- | Get the next item out of an iterator, advancing it. Returns Nothing if the
--- | Iterator is exhausted.
-next :: forall r a. Iterator r a -> ST r (Maybe a)
-next (Iterator f currentIndex) = do
-  i <- STRef.read currentIndex
-  _ <- STRef.modify (_ + 1) currentIndex
-  f i
 
 nextWithIndex :: forall r a. Iterator r a -> ST r (Tuple Int (Maybe a))
 nextWithIndex (Iterator f currentIndex) = do
