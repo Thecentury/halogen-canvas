@@ -284,7 +284,17 @@ updateCell { coord, cell } cells = do
       case withoutGeneration <$> bottom of
         Just Empty ->
           exchangeF coord Bottom promoteGeneration cells
-        Just Concrete -> pure unit
+        Just Concrete -> do
+          bottomLeft <- neighbourMut cells coord BottomLeft
+          case withoutGeneration <$> bottomLeft of
+            Just Empty ->
+              exchangeF coord BottomLeft promoteGeneration cells
+            _ -> do
+              bottomRight <- neighbourMut cells coord BottomRight
+              case withoutGeneration <$> bottomRight of
+                Just Empty ->
+                  exchangeF coord BottomRight promoteGeneration cells
+                _ -> pure unit
         Nothing -> pure unit
     -- Do not update already updated cells.
     Next _ -> pure unit
