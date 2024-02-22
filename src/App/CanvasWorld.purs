@@ -212,15 +212,14 @@ renderer =
       map Just $ GCanvas.getContext2D $ unsafeCoerce canvasElem
 
     renderWorld :: Context2D -> State -> Effect Unit
-    renderWorld ctx world =
+    renderWorld ctx world = do
+      let allCanvas = { x: 0.0, y: 0.0, width: pixelWidth, height: pixelHeight }
+      GCanvas.clearRect ctx allCanvas
       Effect.foreachE (cellsWithCoordinates world.cells) $ renderCell ctx
 
     renderCell :: Context2D -> WithCoord Cell -> Effect Unit
     renderCell ctx { coord, cell } = case cell of
-      Empty -> do
-        let rect = coordToRect coord
-        GCanvas.setFillStyle ctx "#FFF"
-        GCanvas.fillRect ctx rect
+      Empty -> pure unit
 
       Concrete -> do
         let rect = coordToRect coord
