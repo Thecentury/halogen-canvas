@@ -349,7 +349,7 @@ updateWorld :: Array Cell -> Array Cell
 updateWorld cells = withoutGeneration <$> STArray.run do
   let genCells = Current <$> cells
   cellsMut <- STArray.thaw genCells
-  i <- iteratorAt (Array.length genCells - 1) (\ix -> STArray.peek ix cellsMut)
+  i <- iteratorAt (Array.length genCells - 1) \ix -> STArray.peek ix cellsMut
   iterateReverseWithIndex i \ix cell -> do
     let coord = indexToCoord ix
     updateCell (attachCoord coord cell) cellsMut
