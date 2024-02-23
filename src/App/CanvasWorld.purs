@@ -38,10 +38,11 @@ import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.UIEvent.MouseEvent (MouseEvent)
-import Web.UIEvent.MouseEvent (altKey) as Mouse
+import Web.UIEvent.MouseEvent (altKey, shiftKey) as Mouse
 
 data Cell =
     Empty
+  | Acid
   | Concrete
   | FrozenConcrete
 
@@ -103,6 +104,15 @@ neighbourMut cells coord n = do
   case coord' of
     Nothing -> pure Nothing
     Just coord'' -> peek coord'' cells
+
+neighbourWithCoordMut :: forall h a . STArray h a -> Coord -> Neighbour -> ST h (Maybe (Tuple Coord a))
+neighbourWithCoordMut cells coord n = do
+  let coord' = neighbourCoord coord n
+  case coord' of
+    Nothing -> pure Nothing
+    Just coord'' -> do
+      neighbourCell <- peek coord'' cells
+      pure $ neighbourCell <#> \cell -> Tuple coord'' cell
 
 coordIndex :: Coord -> Int
 coordIndex { x, y } = y * worldWidth + x
@@ -218,6 +228,7 @@ renderer =
     renderCell :: Context2D -> WithCoord Cell -> Effect Unit
     renderCell ctx { coord, cell } = case cell of
       Empty -> pure unit
+      Acid -> coloredRect "#7FFF00"
       FrozenConcrete -> coloredRect "#000"
       Concrete -> coloredRect "#111"
 
@@ -239,10 +250,16 @@ handleAction Initialize = do
 
 handleAction (MouseMove e) = do
   if Mouse.altKey e then do
-    let coord = mousePosToCoord e
-    H.modify_ \state -> setCell coord Concrete state
+    spawnCell Concrete
+  else if Mouse.shiftKey e then do
+    spawnCell Acid
   else
     pure unit
+  where
+    spawnCell :: Cell -> forall cs o m. MonadAff m => H.HalogenM State Action cs o m Unit
+    spawnCell cell = do
+      let coord = mousePosToCoord e
+      H.modify_ \state -> setCell coord cell state
 
 handleAction Tick =
   H.modify_ \state -> state { cells = updateWorld state.cells }
@@ -299,6 +316,18 @@ updateCell { coord, cell } cells = do
   case cell of
     Current Empty -> pure unit
     Current FrozenConcrete -> pure unit
+    Current Acid -> do
+      bottom <- neighbourWithCoordMut cells coord Bottom
+      case (\(Tuple coord' c) -> Tuple coord' (withoutGeneration c)) <$> bottom of
+        Just (Tuple _ Empty) ->
+          exchangeF coord Bottom promoteGeneration cells
+        Just (Tuple nCoord Concrete) -> do
+          set nCoord (Next Acid) cells
+          set coord (Next Empty) cells
+        Just (Tuple _ Acid) -> pure unit
+        Just (Tuple _ FrozenConcrete) -> pure unit
+        Nothing -> pure unit
+
     Current Concrete -> do
       bottom <- neighbourMut cells coord Bottom
       case withoutGeneration <$> bottom of
