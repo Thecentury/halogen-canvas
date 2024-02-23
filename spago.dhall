@@ -12,7 +12,6 @@
   , "halogen-css"
   , "halogen-subscriptions"
   , "integers"
-  , "lists"
   , "maybe"
   , "prelude"
   , "sized-vectors"

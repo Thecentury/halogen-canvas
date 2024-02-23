@@ -13,11 +13,9 @@ import Control.Monad.ST.Ref (STRef)
 import Control.Monad.ST.Ref as STRef
 import Data.Array as Array
 import Data.Array.ST (STArray)
-import Data.Array.ST as STA
 import Data.Array.ST as STArray
 import Data.Int (rem)
 import Data.Int as Int
-import Data.List as List
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(Tuple))
 import Data.Typelevel.Num (D2)
@@ -27,7 +25,7 @@ import Effect (foreachE) as Effect
 import Effect.Aff (Milliseconds(..))
 import Effect.Aff (delay, forkAff) as Aff
 import Effect.Aff.Class (class MonadAff)
-import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Class (class MonadEffect)
 --import Effect.Console as Console
 import Graphics.Canvas (Context2D)
 import Graphics.Canvas as GCanvas
@@ -107,9 +105,6 @@ indexToCoord i = { x: i `rem` worldWidth, y: i / worldWidth }
 cellsWithCoordinates :: forall a . Array a -> Array (WithCoord a)
 cellsWithCoordinates cells =
   Array.mapWithIndex (\i cell -> attachCoord (indexToCoord i) cell) cells
-
-cellAt :: Coord -> Array Cell -> Maybe Cell
-cellAt coord cells = Array.index cells (coordIndex coord)
 
 setCell :: Coord -> Cell -> State -> State
 setCell coord cell world = world { cells = fromMaybe world.cells $ Array.updateAt (coordIndex coord) cell world.cells }

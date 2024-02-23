@@ -4,8 +4,6 @@ import Prelude
 
 import App.CanvasWorld as CanvasWorld
 import Effect (Effect)
-import Effect as Effect
-import Effect.Console as Console
 import Halogen.Aff as HA
 import Halogen.VDom.Driver (runUI)
 
