@@ -78,21 +78,31 @@ data Neighbour =
   | Bottom
   | BottomRight
 
-neighbourCoord :: Coord -> Neighbour -> Coord
-neighbourCoord { x, y } = case _ of
-  TopLeft -> { x: x - 1, y: y - 1 }
-  Top -> { x, y: y - 1 }
-  TopRight -> { x: x + 1, y: y - 1 }
-  Left -> { x: x - 1, y }
-  Right -> { x: x + 1, y }
-  BottomLeft -> { x: x - 1, y: y + 1 }
-  Bottom -> { x, y: y + 1 }
-  BottomRight -> { x: x + 1, y: y + 1 }
+neighbourCoord :: Coord -> Neighbour -> Maybe Coord
+neighbourCoord { x, y } neighbour = validate $
+  case neighbour of
+    TopLeft -> { x: x - 1, y: y - 1 }
+    Top -> { x, y: y - 1 }
+    TopRight -> { x: x + 1, y: y - 1 }
+    Left -> { x: x - 1, y }
+    Right -> { x: x + 1, y }
+    BottomLeft -> { x: x - 1, y: y + 1 }
+    Bottom -> { x, y: y + 1 }
+    BottomRight -> { x: x + 1, y: y + 1 }
+  where
+  validate :: Coord -> Maybe Coord
+  validate coord =
+    if coord.x >= 0 && coord.x < worldWidth && coord.y >= 0 && coord.y < worldHeight then
+      Just coord
+    else
+      Nothing
 
 neighbourMut :: forall h a . STArray h a -> Coord -> Neighbour -> ST h (Maybe a)
 neighbourMut cells coord n = do
   let coord' = neighbourCoord coord n
-  peek coord' cells
+  case coord' of
+    Nothing -> pure Nothing
+    Just coord'' -> peek coord'' cells
 
 coordIndex :: Coord -> Int
 coordIndex { x, y } = y * worldWidth + x
@@ -112,8 +122,10 @@ mousePosToCoord e =
   let
     x = Mouse.offsetX e / pixelSize
     y = Mouse.offsetY e / pixelSize
+    validX = clamp 0 (worldWidth - 1) x
+    validY = clamp 0 (worldHeight - 1) y
   in
-    { x, y }
+    { x: validX, y: validY }
 
 pixelWidth :: Number
 pixelWidth = 300.0
@@ -270,14 +282,17 @@ set coord cell cells = do
 -- | Applies the function to both cells before exchanging them.
 exchangeF :: forall h a . Coord -> Neighbour -> (a -> a) -> STArray h a -> ST h Unit
 exchangeF thisCoord n f cells = do
-  let nCoord = neighbourCoord thisCoord n
-  thisCell <- peek thisCoord cells
-  otherCell <- peek nCoord cells
-  case Tuple thisCell otherCell of
-    Tuple (Just this) (Just other) -> do
-      set nCoord (f this) cells
-      set thisCoord (f other) cells
-    _ -> pure unit
+  let maybeNeighbour = neighbourCoord thisCoord n
+  case maybeNeighbour of
+    Nothing -> pure unit
+    Just nCoord -> do
+      thisCell <- peek thisCoord cells
+      otherCell <- peek nCoord cells
+      case Tuple thisCell otherCell of
+        Tuple (Just this) (Just other) -> do
+          set nCoord (f this) cells
+          set thisCoord (f other) cells
+        _ -> pure unit
 
 updateCell :: forall h . WithCoord (Generation Cell) -> STArray h (Generation Cell) -> ST h Unit
 updateCell { coord, cell } cells = do
