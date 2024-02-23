@@ -41,8 +41,9 @@ import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent (altKey) as Mouse
 
 data Cell =
-  Empty
+    Empty
   | Concrete
+  | FrozenConcrete
 
 type State = {
   cells :: Array Cell
@@ -205,11 +206,15 @@ renderer =
     renderCell :: Context2D -> WithCoord Cell -> Effect Unit
     renderCell ctx { coord, cell } = case cell of
       Empty -> pure unit
+      FrozenConcrete -> coloredRect "#000"
+      Concrete -> coloredRect "#111"
 
-      Concrete -> do
-        let rect = coordToRect coord
-        GCanvas.setFillStyle ctx "#000"
-        GCanvas.fillRect ctx rect
+      where
+        coloredRect :: String -> Effect Unit
+        coloredRect color = do
+          let rect = coordToRect coord
+          GCanvas.setFillStyle ctx color
+          GCanvas.fillRect ctx rect
 
     onResize :: Vec D2 Number -> Context2D -> Effect Context2D
     onResize _size ctx =
@@ -261,6 +266,8 @@ set coord cell cells = do
   _ <- STArray.poke i cell cells
   pure unit
 
+-- | Exchanges the value of the cell at the given coordinate with the value of the given neighbouring cell.
+-- | Applies the function to both cells before exchanging them.
 exchangeF :: forall h a . Coord -> Neighbour -> (a -> a) -> STArray h a -> ST h Unit
 exchangeF thisCoord n f cells = do
   let nCoord = neighbourCoord thisCoord n
@@ -276,12 +283,13 @@ updateCell :: forall h . WithCoord (Generation Cell) -> STArray h (Generation Ce
 updateCell { coord, cell } cells = do
   case cell of
     Current Empty -> pure unit
+    Current FrozenConcrete -> pure unit
     Current Concrete -> do
       bottom <- neighbourMut cells coord Bottom
       case withoutGeneration <$> bottom of
         Just Empty ->
           exchangeF coord Bottom promoteGeneration cells
-        Just Concrete -> do
+        Just _ -> do
           bottomLeft <- neighbourMut cells coord BottomLeft
           case withoutGeneration <$> bottomLeft of
             Just Empty ->
