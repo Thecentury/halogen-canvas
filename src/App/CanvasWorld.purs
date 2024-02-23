@@ -3,14 +3,12 @@ module App.CanvasWorld where
 import Prelude
 
 import App.MouseEvent (offsetX, offsetY) as Mouse
+import App.MutableArray (iteratorAt, iterateReverseWithIndex)
 import CSS (border, px, solid)
 import CSS.Geometry (height, width) as CSS
 import Color (black)
 import Control.Monad.Rec.Class (forever)
 import Control.Monad.ST (ST)
-import Control.Monad.ST as ST
-import Control.Monad.ST.Ref (STRef)
-import Control.Monad.ST.Ref as STRef
 import Data.Array as Array
 import Data.Array.ST (STArray)
 import Data.Array.ST as STArray
@@ -26,7 +24,6 @@ import Effect.Aff (Milliseconds(..))
 import Effect.Aff (delay, forkAff) as Aff
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
---import Effect.Console as Console
 import Graphics.Canvas (Context2D)
 import Graphics.Canvas as GCanvas
 import Halogen as H
@@ -249,6 +246,11 @@ peek coord cells = do
   let i = coordIndex coord
   STArray.peek i cells
 
+peekWithIndex :: forall h a . STArray h a -> Int -> ST h (Maybe (Tuple Int a))
+peekWithIndex cells i = do
+  cell <- STArray.peek i cells
+  pure $ (Tuple i) <$> cell
+
 set :: forall h a
           . Coord
           -> a
@@ -294,58 +296,12 @@ updateCell { coord, cell } cells = do
     -- Do not update already updated cells.
     Next _ -> pure unit
 
--- | This type provides a slightly easier way of iterating over an array's
--- | elements in an STArray computation, without having to keep track of
--- | indices.
-data Iterator r a = Iterator (Int -> ST r (Maybe a)) (STRef r Int)
-
--- | Make an Iterator given an indexing function into an array (or anything
--- | else). If `xs :: Array a`, the standard way to create an iterator over
--- | `xs` is to use `iterator (xs !! _)`, where `(!!)` comes from `Data.Array`.
-iterator :: forall r a. (Int -> ST r (Maybe a)) -> ST r (Iterator r a)
-iterator f = Iterator f <$> STRef.new 0
-
-iteratorAt :: forall r a. Int -> (Int -> ST r (Maybe a)) -> ST r (Iterator r a)
-iteratorAt i f = Iterator f <$> STRef.new i
-
-iterateWithIndex :: forall r a. Iterator r a -> (Int -> a -> ST r Unit) -> ST r Unit
-iterateWithIndex iter f = do
-  break <- STRef.new false
-  ST.while (not <$> STRef.read break) do
-    Tuple index mx <- nextWithIndex iter
-    case mx of
-      Just x -> f index x
-      Nothing -> void $ STRef.write true break
-
-iterateReverseWithIndex :: forall r a. Iterator r a -> (Int -> a -> ST r Unit) -> ST r Unit
-iterateReverseWithIndex iter f = do
-  break <- STRef.new false
-  ST.while (not <$> STRef.read break) do
-    Tuple index mx <- prevWithIndex iter
-    case mx of
-      Just x -> f index x
-      Nothing -> void $ STRef.write true break
-
-nextWithIndex :: forall r a. Iterator r a -> ST r (Tuple Int (Maybe a))
-nextWithIndex (Iterator f currentIndex) = do
-  i <- STRef.read currentIndex
-  _ <- STRef.modify (_ + 1) currentIndex
-  element <- f i
-  pure $ Tuple i element
-
-prevWithIndex :: forall r a. Iterator r a -> ST r (Tuple Int (Maybe a))
-prevWithIndex (Iterator f currentIndex) = do
-  i <- STRef.read currentIndex
-  _ <- STRef.modify (_ - 1) currentIndex
-  element <- f i
-  pure $ Tuple i element
-
 updateWorld :: Array Cell -> Array Cell
 updateWorld cells = withoutGeneration <$> STArray.run do
   let genCells = Current <$> cells
   cellsMut <- STArray.thaw genCells
-  i <- iteratorAt (Array.length genCells - 1) \ix -> STArray.peek ix cellsMut
-  iterateReverseWithIndex i \ix cell -> do
+  i <- iteratorAt (Array.length genCells - 1) $ peekWithIndex cellsMut
+  iterateReverseWithIndex i \(Tuple ix cell) -> do
     let coord = indexToCoord ix
     updateCell (attachCoord coord cell) cellsMut
   pure cellsMut
