@@ -70,6 +70,11 @@ data Neighbour =
   | Bottom
   | BottomRight
 
+type Neighboring a = { neighbour :: Neighbour, value :: a }
+
+attachNeighbour :: forall a . Neighbour -> a -> Neighboring a
+attachNeighbour neighbour value = { neighbour, value }
+
 neighbourCoord :: Coord -> Neighbour -> Maybe Coord
 neighbourCoord { x, y } neighbour = validate $
   case neighbour of
