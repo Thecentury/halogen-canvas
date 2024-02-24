@@ -1,4 +1,6 @@
-# Halogen Template
+# Halogen Canvas game
+
+[![CI](https://github.com/Thecentury/halogen-canvas/actions/workflows/ci.yml/badge.svg)](https://github.com/Thecentury/halogen-canvas/actions/workflows/ci.yml)
 
 ### Quick Start
 ```sh
