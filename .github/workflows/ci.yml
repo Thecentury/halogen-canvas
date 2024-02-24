@@ -62,7 +62,7 @@ jobs:
         run: npm run test
 
       - name: Bundle production version
-        run: npm run build-prod
+        run: npm run bundle-prod
 
   deploy:
     environment:
