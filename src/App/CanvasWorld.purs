@@ -38,7 +38,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent (altKey, shiftKey) as Mouse
-import App.Coordinates (Coord, Neighbour(..), WithCoord, attachCoord, cellsWithCoordinates, coordIndex, heightInPixels, indexToCoord, neighbourCoord, neighbourMut, neighbourWithCoordMut, peek, pixelSize, set, widthInPixels, worldHeight, worldWidth)
+import App.Coordinates (Coord, Neighbour(..), WithCoord, attachCoord, cellsWithCoordinates, coordIndex, heightInPixels, indexToCoord, neighbourMut, neighbourWithCoordMut, pixelSize, set, widthInPixels, worldHeight, worldWidth, exchangeF)
 
 data Cell =
     Empty
@@ -194,22 +194,6 @@ timer val = do
     Aff.delay $ Milliseconds 100.0
     H.liftEffect $ HS.notify listener val
   pure emitter
-
--- | Exchanges the value of the cell at the given coordinate with the value of the given neighbouring cell.
--- | Applies the function to both cells before exchanging them.
-exchangeF :: forall h a . Coord -> Neighbour -> (a -> a) -> STArray h a -> ST h Unit
-exchangeF thisCoord n f cells = do
-  let maybeNeighbour = neighbourCoord thisCoord n
-  case maybeNeighbour of
-    Nothing -> pure unit
-    Just nCoord -> do
-      thisCell <- peek thisCoord cells
-      otherCell <- peek nCoord cells
-      case Tuple thisCell otherCell of
-        Tuple (Just this) (Just other) -> do
-          set nCoord (f this) cells
-          set thisCoord (f other) cells
-        _ -> pure unit
 
 updateCell :: forall h . WithCoord (Generation Cell) -> STArray h (Generation Cell) -> ST h Unit
 updateCell { coord, cell } cells = do

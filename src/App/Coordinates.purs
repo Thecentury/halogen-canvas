@@ -103,3 +103,19 @@ neighbourWithCoordMut cells coord n = do
     Just coord'' -> do
       neighbourCell <- peek coord'' cells
       pure $ neighbourCell <#> \cell -> Tuple coord'' cell
+
+-- | Exchanges the value of the cell at the given coordinate with the value of the given neighbouring cell.
+-- | Applies the function to both cells before exchanging them.
+exchangeF :: forall h a . Coord -> Neighbour -> (a -> a) -> STArray h a -> ST h Unit
+exchangeF thisCoord n f cells = do
+  let maybeNeighbour = neighbourCoord thisCoord n
+  case maybeNeighbour of
+    Nothing -> pure unit
+    Just nCoord -> do
+      thisCell <- peek thisCoord cells
+      otherCell <- peek nCoord cells
+      case Tuple thisCell otherCell of
+        Tuple (Just this) (Just other) -> do
+          set nCoord (f this) cells
+          set thisCoord (f other) cells
+        _ -> pure unit
