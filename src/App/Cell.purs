@@ -5,7 +5,6 @@ module App.Cell (
 
 import Prelude
 import App.Coordinates (Neighbour(..), WithCoord, attachCoord, exchangeF, indexToCoord, neighbourMut, neighbourWithCoordMut, set)
-import Data.Tuple (Tuple(Tuple))
 import App.MutableArray (iterateReverseWithIndex, iteratorAt, peekWithIndex)
 import Control.Monad.ST (ST)
 import Control.Monad.ST as ST
@@ -13,6 +12,7 @@ import Data.Array as Array
 import Data.Array.ST (STArray)
 import Data.Array.ST as STArray
 import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(Tuple))
 
 data Cell =
     Empty
