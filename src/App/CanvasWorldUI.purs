@@ -1,4 +1,4 @@
-module App.CanvasWorld where
+module App.CanvasWorldUI where
 
 import Prelude
 
