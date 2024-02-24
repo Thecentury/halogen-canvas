@@ -3,7 +3,8 @@ module App.MutableArray (
   iterator,
   iteratorAt,
   iterateReverseWithIndex,
-  prev
+  prev,
+  peekWithIndex
 ) where
 
 import Prelude
@@ -11,7 +12,10 @@ import Control.Monad.ST (ST)
 import Control.Monad.ST as ST
 import Control.Monad.ST.Ref (STRef)
 import Control.Monad.ST.Ref as STRef
+import Data.Array.ST (STArray)
+import Data.Array.ST as STArray
 import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(Tuple))
 
 -- | This type provides a slightly easier way of iterating over an array's
 -- | elements in an STArray computation, without having to keep track of
@@ -42,3 +46,10 @@ prev (Iterator f currentIndex) = do
   _ <- STRef.modify (_ - 1) currentIndex
   element <- f i
   pure element
+
+{----------------------------------------------------------------------------------------------------------------------}
+
+peekWithIndex :: forall h a . STArray h a -> Int -> ST h (Maybe (Tuple Int a))
+peekWithIndex cells i = do
+  cell <- STArray.peek i cells
+  pure $ (Tuple i) <$> cell

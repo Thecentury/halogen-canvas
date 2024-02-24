@@ -3,7 +3,7 @@ module App.CanvasWorld where
 import Prelude
 
 import App.MouseEvent (offsetX, offsetY) as Mouse
-import App.MutableArray (iteratorAt, iterateReverseWithIndex)
+import App.MutableArray (iterateReverseWithIndex, iteratorAt, peekWithIndex)
 import CSS (border, px, solid)
 import CSS.Geometry (height, width) as CSS
 import Color (black)
@@ -12,7 +12,6 @@ import Control.Monad.ST (ST)
 import Data.Array as Array
 import Data.Array.ST (STArray)
 import Data.Array.ST as STArray
-import Data.Int (rem)
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(Tuple))
@@ -39,6 +38,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent (altKey, shiftKey) as Mouse
+import App.Coordinates (Coord, Neighbour(..), WithCoord, attachCoord, cellsWithCoordinates, coordIndex, heightInPixels, indexToCoord, neighbourCoord, neighbourMut, neighbourWithCoordMut, peek, pixelSize, set, widthInPixels, worldHeight, worldWidth)
 
 data Cell =
     Empty
@@ -49,13 +49,6 @@ data Cell =
 type State = {
   cells :: Array Cell
 }
-
-type Coord = { x :: Int, y :: Int }
-
-type WithCoord a = { coord :: Coord, cell :: a }
-
-attachCoord :: forall a . Coord -> a -> WithCoord a
-attachCoord coord cell = { coord, cell }
 
 data Generation a =
     Current a
@@ -69,61 +62,6 @@ withoutGeneration :: forall a . Generation a -> a
 withoutGeneration (Current a) = a
 withoutGeneration (Next a) = a
 
-data Neighbour =
-    TopLeft
-  | Top
-  | TopRight
-  | Left
-  | Right
-  | BottomLeft
-  | Bottom
-  | BottomRight
-
-neighbourCoord :: Coord -> Neighbour -> Maybe Coord
-neighbourCoord { x, y } neighbour = validate $
-  case neighbour of
-    TopLeft -> { x: x - 1, y: y - 1 }
-    Top -> { x, y: y - 1 }
-    TopRight -> { x: x + 1, y: y - 1 }
-    Left -> { x: x - 1, y }
-    Right -> { x: x + 1, y }
-    BottomLeft -> { x: x - 1, y: y + 1 }
-    Bottom -> { x, y: y + 1 }
-    BottomRight -> { x: x + 1, y: y + 1 }
-  where
-  validate :: Coord -> Maybe Coord
-  validate coord =
-    if coord.x >= 0 && coord.x < worldWidth && coord.y >= 0 && coord.y < worldHeight then
-      Just coord
-    else
-      Nothing
-
-neighbourMut :: forall h a . STArray h a -> Coord -> Neighbour -> ST h (Maybe a)
-neighbourMut cells coord n = do
-  let coord' = neighbourCoord coord n
-  case coord' of
-    Nothing -> pure Nothing
-    Just coord'' -> peek coord'' cells
-
-neighbourWithCoordMut :: forall h a . STArray h a -> Coord -> Neighbour -> ST h (Maybe (Tuple Coord a))
-neighbourWithCoordMut cells coord n = do
-  let coord' = neighbourCoord coord n
-  case coord' of
-    Nothing -> pure Nothing
-    Just coord'' -> do
-      neighbourCell <- peek coord'' cells
-      pure $ neighbourCell <#> \cell -> Tuple coord'' cell
-
-coordIndex :: Coord -> Int
-coordIndex { x, y } = y * worldWidth + x
-
-indexToCoord :: Int -> Coord
-indexToCoord i = { x: i `rem` worldWidth, y: i / worldWidth }
-
-cellsWithCoordinates :: forall a . Array a -> Array (WithCoord a)
-cellsWithCoordinates cells =
-  Array.mapWithIndex (\i cell -> attachCoord (indexToCoord i) cell) cells
-
 setCell :: Coord -> Cell -> State -> State
 setCell coord cell world = world { cells = fromMaybe world.cells $ Array.updateAt (coordIndex coord) cell world.cells }
 
@@ -136,21 +74,6 @@ mousePosToCoord e =
     validY = clamp 0 (worldHeight - 1) y
   in
     { x: validX, y: validY }
-
-pixelWidth :: Number
-pixelWidth = 300.0
-
-pixelHeight :: Number
-pixelHeight = 300.0
-
-pixelSize :: Int
-pixelSize = 5
-
-worldWidth :: Int
-worldWidth = Int.round pixelWidth / pixelSize
-
-worldHeight :: Int
-worldHeight = Int.round pixelHeight / pixelSize
 
 data Action =
     Initialize
@@ -180,8 +103,8 @@ render state =
         [
           HE.onMouseMove MouseMove,
           style $ do
-            CSS.width (px pixelWidth)
-            CSS.height (px pixelHeight)
+            CSS.width (px widthInPixels)
+            CSS.height (px heightInPixels)
         ]
         [
           HH.slot_ _canvas unit (Canvas.mkComponent cfg) input
@@ -193,7 +116,7 @@ render state =
     input =
       { picture : state
       , css : Just (border solid (px 0.5) black)
-      , size : vec2 pixelWidth pixelHeight
+      , size : vec2 widthInPixels heightInPixels
       }
 
 data Picture
@@ -221,7 +144,7 @@ renderer =
 
     renderWorld :: Context2D -> State -> Effect Unit
     renderWorld ctx world = do
-      let allCanvas = { x: 0.0, y: 0.0, width: pixelWidth, height: pixelHeight }
+      let allCanvas = { x: 0.0, y: 0.0, width: widthInPixels, height: heightInPixels }
       GCanvas.clearRect ctx allCanvas
       Effect.foreachE (cellsWithCoordinates world.cells) $ renderCell ctx
 
@@ -259,7 +182,7 @@ handleAction (MouseMove e) = do
     spawnCell :: Cell -> forall cs o m. MonadAff m => H.HalogenM State Action cs o m Unit
     spawnCell cell = do
       let coord = mousePosToCoord e
-      H.modify_ \state -> setCell coord cell state
+      H.modify_ $ setCell coord cell
 
 handleAction Tick =
   H.modify_ \state -> state { cells = updateWorld state.cells }
@@ -271,29 +194,6 @@ timer val = do
     Aff.delay $ Milliseconds 100.0
     H.liftEffect $ HS.notify listener val
   pure emitter
-
-peek :: forall h a
-           . Coord
-          -> STArray h a
-          -> ST h (Maybe a)
-peek coord cells = do
-  let i = coordIndex coord
-  STArray.peek i cells
-
-peekWithIndex :: forall h a . STArray h a -> Int -> ST h (Maybe (Tuple Int a))
-peekWithIndex cells i = do
-  cell <- STArray.peek i cells
-  pure $ (Tuple i) <$> cell
-
-set :: forall h a
-          . Coord
-          -> a
-          -> STArray h a
-          -> ST h Unit
-set coord cell cells = do
-  let i = coordIndex coord
-  _ <- STArray.poke i cell cells
-  pure unit
 
 -- | Exchanges the value of the cell at the given coordinate with the value of the given neighbouring cell.
 -- | Applies the function to both cells before exchanging them.
