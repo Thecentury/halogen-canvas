@@ -2,6 +2,7 @@ module App.CanvasWorld where
 
 import Prelude
 
+import App.Coordinates (Coord, Neighbour(..), WithCoord, attachCoord, cellsWithCoordinates, coordIndex, heightInPixels, indexToCoord, neighbourMut, neighbourWithCoordMut, pixelSize, set, widthInPixels, worldHeight, worldWidth, exchangeF)
 import App.MouseEvent (offsetX, offsetY) as Mouse
 import App.MutableArray (iterateReverseWithIndex, iteratorAt, peekWithIndex)
 import CSS (border, px, solid)
@@ -38,7 +39,6 @@ import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent (altKey, shiftKey) as Mouse
-import App.Coordinates (Coord, Neighbour(..), WithCoord, attachCoord, cellsWithCoordinates, coordIndex, heightInPixels, indexToCoord, neighbourMut, neighbourWithCoordMut, pixelSize, set, widthInPixels, worldHeight, worldWidth, exchangeF)
 
 data Cell =
     Empty

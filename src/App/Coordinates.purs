@@ -1,3 +1,4 @@
+-- | Bacic functions for working with coordinates and cells of the world.
 module App.Coordinates where
 
 import Prelude
