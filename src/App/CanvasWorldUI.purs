@@ -10,6 +10,7 @@ import CSS.Geometry (height, width) as CSS
 import Color (black)
 import Control.Monad.Rec.Class (forever)
 import Data.Array as Array
+import Data.Int (rem)
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Typelevel.Num (D2)
@@ -129,6 +130,10 @@ renderer =
     renderCell :: Context2D -> WithCoord Cell -> Effect Unit
     renderCell ctx { coord, cell } = case cell of
       Empty -> pure unit
+      Acidized { ttl } | ttl `rem` 2 == 0 ->
+        renderCell ctx { coord, cell: Acid }
+      Acidized { was } ->
+        renderCell ctx { coord, cell: was }
       Acid -> coloredRect "#7FFF00"
       FrozenConcrete -> coloredRect "#000"
       Concrete -> coloredRect "#111"

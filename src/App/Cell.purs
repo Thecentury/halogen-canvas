@@ -1,5 +1,6 @@
 module App.Cell (
   Cell(..),
+  AcidizedData,
   updateWorld
 ) where
 
@@ -14,9 +15,12 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
 import Data.Traversable (traverse)
 
+type AcidizedData = { was :: Cell, ttl :: Int }
+
 data Cell =
     Empty
   | Acid
+  | Acidized AcidizedData
   | Concrete
   | FrozenConcrete
 
@@ -55,15 +59,20 @@ updateCell { coord : here, cell } cells = do
   case cell of
     Current Empty -> pure unit
     Current FrozenConcrete -> pure unit
+    Current (Acidized { ttl, was }) -> do
+      if ttl == 0 then
+        set here (Next Acid) cells
+      else
+        set here (Next $ Acidized { was: was, ttl: ttl - 1 }) cells
     Current Acid -> do
       bottom <- neighbourWithCoordMut cells here Bottom
       case (\(Tuple coord' c) -> Tuple coord' (withoutGeneration c)) <$> bottom of
         Just (Tuple _ Empty) ->
           exchangeF here Bottom promoteGeneration cells
-        Just (Tuple _ _) -> do
+        Just (Tuple _ prevCell) -> do
           _ <- applyToFirstMatching here [Bottom, BottomLeft, BottomRight] ((==) Concrete)
                 (\_ there -> do
-                  set there (Next Acid) cells
+                  set there (Next $ Acidized { was: prevCell, ttl: 10 }) cells
                   set here (Next Empty) cells) cells
           pure unit
         Nothing -> pure unit
