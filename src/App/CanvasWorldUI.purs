@@ -98,10 +98,6 @@ render state =
       , size : vec2 widthInPixels heightInPixels
       }
 
-data Picture
-  = Rect { x :: Number, y :: Number, width :: Number, height :: Number }
-  | Circle { x :: Number, y :: Number, radius :: Number }
-
 coordToRect :: Coord -> GCanvas.Rectangle
 coordToRect { x, y } =
   { x: Int.toNumber x * size,
@@ -111,7 +107,6 @@ coordToRect { x, y } =
   }
   where
     size = Int.toNumber pixelSize
-
 
 renderer :: Renderer GCanvas.Context2D State
 renderer =
