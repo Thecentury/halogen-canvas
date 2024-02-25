@@ -38,8 +38,8 @@ withoutGeneration :: forall a . Generation a -> a
 withoutGeneration (Current a) = a
 withoutGeneration (Next a) = a
 
-applyToFirstMatching :: forall h . Coord -> Array Neighbour -> (Cell -> Boolean) -> (Neighbour -> Coord -> ST h Unit) -> STArray h (Generation Cell) -> ST h Boolean
-applyToFirstMatching here neighbours predicate run cells = do
+applyToFirstMatching :: forall h . Coord -> Array Neighbour -> (Cell -> Boolean) -> STArray h (Generation Cell) -> (Neighbour -> Coord -> Cell -> ST h Unit) -> ST h Boolean
+applyToFirstMatching here neighbours predicate cells run = do
   candidates <- traverse (\n -> neighbourWithCoordMut cells here n <#> map (attachNeighbour n)) neighbours
   let firstMatch =
         candidates
@@ -52,7 +52,7 @@ applyToFirstMatching here neighbours predicate run cells = do
     Nothing -> pure false
   where
     run' :: Neighboring (Tuple Coord (Generation Cell)) -> ST h Unit
-    run' { neighbour, value : Tuple coord _ } = run neighbour coord
+    run' { neighbour, value : Tuple coord cell } = run neighbour coord $ withoutGeneration cell
 
 updateCell :: forall h . WithCoord (Generation Cell) -> STArray h (Generation Cell) -> ST h Unit
 updateCell { coord : here, cell } cells = do
@@ -70,10 +70,13 @@ updateCell { coord : here, cell } cells = do
         Just (Tuple _ Empty) ->
           exchangeF here Bottom promoteGeneration cells
         Just (Tuple _ prevCell) -> do
-          _ <- applyToFirstMatching here [Bottom, BottomLeft, BottomRight] ((==) Concrete)
-                (\_ there -> do
-                  set there (Next $ Acidized { was: prevCell, ttl: 10 }) cells
-                  set here (Next Empty) cells) cells
+          _ <- applyToFirstMatching here [Bottom, BottomLeft, BottomRight] (flip Array.elem [Concrete, Empty]) cells
+                (\n there nCell -> do
+                  if nCell == Concrete then do
+                    set there (Next $ Acidized { was: prevCell, ttl: 10 }) cells
+                    set here (Next Empty) cells
+                  else
+                    exchangeF here n promoteGeneration cells)
           pure unit
         Nothing -> pure unit
 
@@ -82,8 +85,8 @@ updateCell { coord : here, cell } cells = do
             here
             [Bottom, BottomLeft, BottomRight]
             (\n -> n == Empty || n == Acid)
-            (\n _ -> exchangeF here n promoteGeneration cells)
             cells
+            (\n _ _ -> exchangeF here n promoteGeneration cells)
       pure unit
     -- Do not update already updated cells.
     Next _ -> pure unit
