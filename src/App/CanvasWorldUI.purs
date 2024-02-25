@@ -126,10 +126,10 @@ renderer =
     renderCell ctx { coord, cell } = case cell of
       Empty -> pure unit
       Acidized { ttl } | ttl `rem` 2 == 0 ->
-        renderCell ctx { coord, cell: Acid }
+        renderCell ctx { coord, cell: Acid { horizontalForce: 0 } }
       Acidized { was } ->
         renderCell ctx { coord, cell: was }
-      Acid -> coloredRect "#7FFF00"
+      Acid _ -> coloredRect "#7FFF00"
       FrozenConcrete -> coloredRect "#000"
       Concrete -> coloredRect "#111"
 
@@ -153,7 +153,7 @@ handleAction (MouseMove e) = do
   if Mouse.altKey e then do
     spawnCell Concrete
   else if Mouse.shiftKey e then do
-    spawnCell Acid
+    spawnCell $ Acid { horizontalForce : 0 }
   else
     pure unit
   where
