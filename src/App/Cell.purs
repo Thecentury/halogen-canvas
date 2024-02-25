@@ -78,7 +78,12 @@ updateCell { coord : here, cell } cells = do
         Nothing -> pure unit
 
     Current Concrete -> do
-      _ <- applyToFirstMatching here [Bottom, BottomLeft, BottomRight] ((==) Empty) (\n _ -> exchangeF here n promoteGeneration cells) cells
+      _ <- applyToFirstMatching
+            here
+            [Bottom, BottomLeft, BottomRight]
+            (\n -> n == Empty || n == Acid)
+            (\n _ -> exchangeF here n promoteGeneration cells)
+            cells
       pure unit
     -- Do not update already updated cells.
     Next _ -> pure unit
