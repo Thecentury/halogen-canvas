@@ -33,12 +33,11 @@ withoutGeneration :: forall a . Generation a -> a
 withoutGeneration (Current a) = a
 withoutGeneration (Next a) = a
 
-setPreservingGeneration :: forall h a . Coord -> a -> STArray h (Generation a) -> ST h Unit
-setPreservingGeneration coord cell cells = do
+mapPreservingGeneration :: forall h a . Coord -> (a -> a) -> STArray h (Generation a) -> ST h Unit
+mapPreservingGeneration coord f cells = do
   let i = coordIndex coord
-  _ <- STArray.modify i (map $ const cell) cells
+  _ <- STArray.modify i (map f) cells
   pure unit
-
 
 {----------------------------------------------------------------------------------------------------------------------}
 
@@ -105,12 +104,12 @@ updateCell { coord : here, cell } cells = do
             _ <- applyToFirstMatching here [BottomLeft] isAcid cells $ \_ there nCell -> do
               case nCell of
                 Acid nAcid ->
-                  setPreservingGeneration there (Acid { horizontalForce: nAcid.horizontalForce - 1 }) cells
+                  mapPreservingGeneration there (const $ Acid { horizontalForce: nAcid.horizontalForce - 1 }) cells
                 _ -> pure unit
             _ <- applyToFirstMatching here [BottomRight] isAcid cells $ \_ there nCell -> do
               case nCell of
                 Acid nAcid ->
-                  setPreservingGeneration there (Acid { horizontalForce: nAcid.horizontalForce + 1 }) cells
+                  mapPreservingGeneration there (const $ Acid { horizontalForce: nAcid.horizontalForce + 1 }) cells
                 _ -> pure unit
             if horizontalForce < 0 then do
               left <- neighbourWithCoordMut cells here Left
@@ -118,6 +117,8 @@ updateCell { coord : here, cell } cells = do
                 Just (Tuple there Empty) -> do
                   set there (Next $ Acid { horizontalForce: 0 }) cells
                   set here (Next Empty) cells
+                Just (Tuple there (Acid { horizontalForce: thereForce })) ->
+                  mapPreservingGeneration there (const $ Acid { horizontalForce: thereForce - 1 }) cells
                 _ -> pure unit
             else if horizontalForce > 0 then do
               right <- neighbourWithCoordMut cells here Right
@@ -125,6 +126,8 @@ updateCell { coord : here, cell } cells = do
                 Just (Tuple there Empty) -> do
                   set there (Next $ Acid { horizontalForce: 0 }) cells
                   set here (Next Empty) cells
+                Just (Tuple there (Acid { horizontalForce: thereForce })) ->
+                  mapPreservingGeneration there (const $ Acid { horizontalForce: thereForce + 1 }) cells
                 _ -> pure unit
               pure unit
             else pure unit
