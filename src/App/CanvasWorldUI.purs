@@ -20,7 +20,8 @@ import Effect (foreachE) as Effect
 import Effect.Aff (Milliseconds(..))
 import Effect.Aff (delay, forkAff) as Aff
 import Effect.Aff.Class (class MonadAff)
-import Effect.Class (class MonadEffect)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Console as Console
 import Graphics.Canvas (Context2D)
 import Graphics.Canvas as GCanvas
 import Halogen as H
@@ -36,6 +37,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent (altKey, shiftKey) as Mouse
+import Data.Tuple (Tuple(Tuple))
 
 type State = {
   cells :: Array Cell
@@ -164,8 +166,11 @@ handleAction (MouseMove e) = do
       let coord = mousePosToCoord e
       H.modify_ $ setCell coord cell
 
-handleAction Tick =
-  H.modify_ \state -> state { cells = updateWorld state.cells }
+handleAction Tick = do
+  cells <- H.gets (_.cells)
+  let (Tuple iterations cells') = updateWorld cells
+  H.modify_ \state -> state { cells = cells' }
+  liftEffect $ Console.log $ "Iterations: " <> show iterations
 
 timer :: forall m a. MonadAff m => a -> m (HS.Emitter a)
 timer val = do
