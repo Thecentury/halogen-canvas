@@ -6,6 +6,7 @@
   , "colors"
   , "console"
   , "css"
+  , "dom-indexed"
   , "effect"
   , "foldable-traversable"
   , "halogen"

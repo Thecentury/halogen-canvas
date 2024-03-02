@@ -15,6 +15,7 @@ import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Typelevel.Num (D2)
 import Data.Vec (Vec, vec2)
+import DOM.HTML.Indexed.InputType (InputType(..))
 import Effect (Effect)
 import Effect (foreachE) as Effect
 import Effect.Aff (Milliseconds(..))
@@ -31,16 +32,30 @@ import Halogen.Canvas.Renderer (Renderer)
 import Halogen.HTML as HH
 import Halogen.HTML.CSS (style)
 import Halogen.HTML.Events as HE
+import Halogen.HTML.Properties as HP
 import Halogen.Subscription as HS
 import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.UIEvent.MouseEvent (MouseEvent)
-import Web.UIEvent.MouseEvent (altKey, buttons, shiftKey) as Mouse
+import Web.UIEvent.MouseEvent (altKey, buttons) as Mouse
 import Data.Tuple (Tuple(Tuple))
+import Web.HTML.Common (ClassName(..))
+
+type MaterialSelectorSpec = {
+  material :: Cell,
+  name :: String
+}
+
+materialSelectors :: Array MaterialSelectorSpec
+materialSelectors = [
+  { material: Concrete, name: "Concrete" },
+  { material: Acid { horizontalForce: 0 }, name: "Acid" }
+]
 
 type State = {
-  cells :: Array Cell
+  cells :: Array Cell,
+  activeMaterial :: Cell
 }
 
 setCell :: Coord -> Cell -> State -> State
@@ -59,6 +74,7 @@ mousePosToCoord e =
 data Action =
     Initialize
   | MouseMove MouseEvent
+  | ActiveMaterialChanged Cell
   | Tick
 
 _canvas = Proxy :: Proxy "canvas"
@@ -67,7 +83,10 @@ component :: forall q i o m. MonadAff m => H.Component q i o m
 component =
   H.mkComponent
     { initialState: \_ ->
-      { cells: Array.replicate (worldWidth * worldHeight) Empty },
+      {
+        cells: Array.replicate (worldWidth * worldHeight) Empty,
+        activeMaterial: Concrete
+      },
       render,
       eval: H.mkEval H.defaultEval
        { handleAction = handleAction,
@@ -76,29 +95,54 @@ component =
 
 type Slots = ( canvas :: forall query. H.Slot query Void Unit )
 
+renderMaterialSelector :: forall m. MonadEffect m => State -> MaterialSelectorSpec -> H.ComponentHTML Action Slots m
+renderMaterialSelector { activeMaterial } { material, name } =
+  HH.div
+    [ HP.class_ $ ClassName "material-selector-item" ]
+    [
+      HH.input
+        [ HP.type_ InputRadio,
+          HP.checked $ material == activeMaterial,
+          HE.onClick (\_ -> ActiveMaterialChanged material),
+          HP.id name
+        ],
+      HH.label [
+        HP.for name
+      ] [ HH.text name ]
+    ]
+
 render :: forall m. MonadEffect m => State -> H.ComponentHTML Action Slots m
 render state =
-  HH.div_
+  HH.div
+    [ HP.class_ $ ClassName "main-layout" ]
     [
       HH.div
         [
           HE.onMouseMove MouseMove,
+          HP.class_ $ ClassName "canvas",
           style $ do
             CSS.width (px widthInPixels)
             CSS.height (px heightInPixels)
         ]
         [
           HH.slot_ _canvas unit (Canvas.mkComponent cfg) input
-        ]
+        ],
+      HH.div [
+        HP.class_ $ ClassName "material-selector"
+      ] [
+        HH.fieldset [] $
+          [ HH.legend [] [ HH.text "Select a material:" ] ] <>
+          materialSelectorsHtml
+      ]
     ]
   where
     cfg = { renderer }
     input :: Input State
     input =
-      { picture : state
-      , css : Just (border solid (px 0.5) black)
-      , size : vec2 widthInPixels heightInPixels
-      }
+      { picture : state,
+        css : Just (border solid (px 0.5) black),
+        size : vec2 widthInPixels heightInPixels }
+    materialSelectorsHtml = renderMaterialSelector state <$> materialSelectors
 
 coordToRect :: Coord -> GCanvas.Rectangle
 coordToRect { x, y } =
@@ -155,9 +199,8 @@ handleAction Initialize = do
 
 handleAction (MouseMove e) = do
   if Mouse.altKey e || Mouse.buttons e == 1 then do
-    spawnCell Concrete
-  else if Mouse.shiftKey e then do
-    spawnCell $ Acid { horizontalForce : 0 }
+    activeMaterial <- H.gets (_.activeMaterial)
+    spawnCell activeMaterial
   else
     pure unit
   where
@@ -171,6 +214,9 @@ handleAction Tick = do
   let (Tuple iterations cells') = updateWorld cells
   H.modify_ \state -> state { cells = cells' }
   liftEffect $ Console.log $ "Iterations: " <> show iterations
+
+handleAction (ActiveMaterialChanged material) =
+  H.modify_ \state -> state { activeMaterial = material }
 
 timer :: forall m a. MonadAff m => a -> m (HS.Emitter a)
 timer val = do
