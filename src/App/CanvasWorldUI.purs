@@ -50,7 +50,8 @@ type MaterialSelectorSpec = {
 materialSelectors :: Array MaterialSelectorSpec
 materialSelectors = [
   { material: Concrete, name: "Concrete" },
-  { material: Acid { horizontalForce: 0 }, name: "Acid" }
+  { material: Acid { horizontalForce: 0 }, name: "Acid" },
+  { material: Empty, name: "Empty" }
 ]
 
 type State = {
