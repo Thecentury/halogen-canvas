@@ -1,6 +1,6 @@
 .main-layout {
     display: grid;
-    grid-template-columns: 50% 20px 50%;
+    grid-template-columns: auto 20pt auto auto;
 }
 
 .canvas {
@@ -9,5 +9,5 @@
 
 .material-selector {
     grid-column: 3;
-    width: auto;
+    max-width: 250pt;
 }
