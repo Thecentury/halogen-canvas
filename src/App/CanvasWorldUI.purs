@@ -36,7 +36,7 @@ import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.UIEvent.MouseEvent (MouseEvent)
-import Web.UIEvent.MouseEvent (altKey, shiftKey) as Mouse
+import Web.UIEvent.MouseEvent (altKey, buttons, shiftKey) as Mouse
 import Data.Tuple (Tuple(Tuple))
 
 type State = {
@@ -154,7 +154,7 @@ handleAction Initialize = do
     pure unit
 
 handleAction (MouseMove e) = do
-  if Mouse.altKey e then do
+  if Mouse.altKey e || Mouse.buttons e == 1 then do
     spawnCell Concrete
   else if Mouse.shiftKey e then do
     spawnCell $ Acid { horizontalForce : 0 }
