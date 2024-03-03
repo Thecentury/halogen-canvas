@@ -14,6 +14,7 @@
   , "halogen-subscriptions"
   , "integers"
   , "maybe"
+  , "numbers"
   , "prelude"
   , "sized-vectors"
   , "st"

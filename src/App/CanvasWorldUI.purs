@@ -3,7 +3,7 @@ module App.CanvasWorldUI where
 import Prelude
 
 import App.Cell (Cell(..), updateWorld)
-import App.Coordinates (Coord, WithCoord, cellsWithCoordinates, coordIndex, heightInPixels, pixelSize, widthInPixels, worldHeight, worldWidth)
+import App.Coordinates (Coord, WithCoord, cellsWithCoordinates, pointsBetweenCoordinates, coordIndex, heightInPixels, pixelSize, widthInPixels, worldHeight, worldWidth)
 import App.MouseEvent (offsetX, offsetY) as Mouse
 import CSS (border, px, solid)
 import CSS.Geometry (height, width) as CSS
@@ -41,6 +41,7 @@ import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent (altKey, buttons) as Mouse
 import Data.Tuple (Tuple(Tuple))
 import Web.HTML.Common (ClassName(..))
+import Data.Foldable (foldl)
 
 type MaterialSelectorSpec = {
   material :: Cell,
@@ -56,11 +57,12 @@ materialSelectors = [
 
 type State = {
   cells :: Array Cell,
-  activeMaterial :: Cell
+  activeMaterial :: Cell,
+  previousMousePos :: Maybe Coord
 }
 
-setCell :: Coord -> Cell -> State -> State
-setCell coord cell world = world { cells = fromMaybe world.cells $ Array.updateAt (coordIndex coord) cell world.cells }
+setCell :: Cell -> Array Cell -> Coord -> Array Cell
+setCell cell cells coord = fromMaybe cells $ Array.updateAt (coordIndex coord) cell cells
 
 mousePosToCoord :: MouseEvent -> Coord
 mousePosToCoord e =
@@ -75,6 +77,7 @@ mousePosToCoord e =
 data Action =
     Initialize
   | MouseMove MouseEvent
+  | MouseUp MouseEvent
   | ActiveMaterialChanged Cell
   | Tick
 
@@ -86,7 +89,8 @@ component =
     { initialState: \_ ->
       {
         cells: Array.replicate (worldWidth * worldHeight) Empty,
-        activeMaterial: Concrete
+        activeMaterial: Concrete,
+        previousMousePos: Nothing
       },
       render,
       eval: H.mkEval H.defaultEval
@@ -120,6 +124,7 @@ render state =
       HH.div
         [
           HE.onMouseMove MouseMove,
+          HE.onMouseUp MouseUp,
           HP.class_ $ ClassName "canvas",
           style $ do
             CSS.width (px widthInPixels)
@@ -200,15 +205,27 @@ handleAction Initialize = do
 
 handleAction (MouseMove e) = do
   if Mouse.altKey e || Mouse.buttons e == 1 then do
-    activeMaterial <- H.gets (_.activeMaterial)
-    spawnCell activeMaterial
+    H.modify_ \state ->
+      let
+        mousePos = mousePosToCoord e
+        previousMousePos = fromMaybe mousePos state.previousMousePos
+        intermediatePoints = pointsBetweenCoordinates previousMousePos mousePos
+        intermediatePoints' =
+          if intermediatePoints == [] then
+            [mousePos]
+          else
+           intermediatePoints
+        updatedCells = foldl (setCell state.activeMaterial) state.cells intermediatePoints'
+      in
+      state {
+        previousMousePos = Just mousePos,
+        cells = updatedCells
+      }
   else
     pure unit
-  where
-    spawnCell :: Cell -> forall cs o m. MonadAff m => H.HalogenM State Action cs o m Unit
-    spawnCell cell = do
-      let coord = mousePosToCoord e
-      H.modify_ $ setCell coord cell
+
+handleAction (MouseUp _) = do
+  H.modify_ \state -> state { previousMousePos = Nothing }
 
 handleAction Tick = do
   cells <- H.gets (_.cells)

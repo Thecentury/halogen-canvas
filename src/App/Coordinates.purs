@@ -9,6 +9,10 @@ import Data.Array.ST as STArray
 import Data.Int as Int
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
+import Data.Ord (abs, signum)
+import Data.Array ((:))
+import Data.Number (pow, sqrt)
+import Data.Int (toNumber)
 
 widthInPixels :: Number
 widthInPixels = 300.0
@@ -27,6 +31,21 @@ worldHeight = Int.round heightInPixels / pixelSize
 
 type Coord = { x :: Int, y :: Int }
 
+type Vector = { dx :: Int, dy :: Int }
+
+addVector :: Coord -> Vector -> Coord
+addVector { x, y } { dx, dy } = { x: x + dx, y: y + dy }
+
+betweenPoints :: Coord -> Coord -> Vector
+betweenPoints { x: x1, y: y1 } { x: x2, y: y2 } = { dx: x2 - x1, dy: y2 - y1 }
+
+signumVector :: Vector -> Vector
+signumVector { dx, dy } = { dx: signum dx, dy: signum dy }
+
+dist :: Coord -> Coord -> Number
+dist { x: x1, y: y1 } { x: x2, y: y2 } =
+  sqrt $ (toNumber (x2 - x1)) `pow` 2.0 + (toNumber (y2 - y1)) `pow` 2.0
+
 coordIndex :: Coord -> Int
 coordIndex { x, y } = y * worldWidth + x
 
@@ -41,6 +60,41 @@ type WithCoord a = { coord :: Coord, cell :: a }
 
 attachCoord :: forall a . Coord -> a -> WithCoord a
 attachCoord coord cell = { coord, cell }
+
+pointsBetweenCoordinates :: Coord -> Coord -> Array Coord
+pointsBetweenCoordinates p1 p2 =
+  if p1 == p2 then
+    [p1]
+  else
+    p1 : (pointsBetweenCoordinates nextPoint p2) where
+
+  nextPoint :: Coord
+  nextPoint =
+    let
+      between = betweenPoints p1 p2
+      _45deg = abs between.dx == abs between.dy
+      v = signumVector between
+      next1 = addVector p1 v
+      dist1 = dist next1 p2
+      next2 = addVector p1 { dx: 0, dy: v.dy }
+      dist2 = dist next2 p2
+      next3 = addVector p1 { dx: v.dx, dy: 0 }
+      dist3 = dist next3 p2
+    in
+      if _45deg then
+        if dist1 < dist2 && dist1 < dist3 then
+          next1
+        else if dist2 < dist1 && dist2 < dist3 then
+          next2
+        else
+          next3
+      else
+        if dist2 < dist3 then
+          next2
+        else
+          next3
+
+------------------------------------------------------------------------------------------------------------------------
 
 peek :: forall h a
            . Coord
@@ -95,15 +149,15 @@ neighbourCoord { x, y } neighbour = validate $
       Nothing
 
 neighbourMut :: forall h a . STArray h a -> Coord -> Neighbour -> ST h (Maybe a)
-neighbourMut cells coord n = do
-  let coord' = neighbourCoord coord n
+neighbourMut cells center n = do
+  let coord' = neighbourCoord center n
   case coord' of
     Nothing -> pure Nothing
     Just coord'' -> peek coord'' cells
 
 neighbourWithCoordMut :: forall h a . STArray h a -> Coord -> Neighbour -> ST h (Maybe (Tuple Coord a))
-neighbourWithCoordMut cells coord n = do
-  let coord' = neighbourCoord coord n
+neighbourWithCoordMut cells center n = do
+  let coord' = neighbourCoord center n
   case coord' of
     Nothing -> pure Nothing
     Just coord'' -> do
