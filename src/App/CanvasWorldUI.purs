@@ -44,6 +44,10 @@ import Web.HTML.Common (ClassName(..))
 import Data.Foldable (foldl)
 import Web.UIEvent.KeyboardEvent (altKey) as Keyboard
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
+import Web.TouchEvent.TouchEvent (TouchEvent, touches)
+import Web.TouchEvent.TouchList as TouchList
+import App.HTML.Touch as Touch
+import Web.TouchEvent.Touch (Touch)
 
 type MaterialSelectorSpec = {
   material :: Cell,
@@ -76,9 +80,20 @@ mousePosToCoord e =
   in
     { x: validX, y: validY }
 
+touchPosToCoord :: Touch -> Coord
+touchPosToCoord touch =
+  let
+    x = Touch.offsetX touch / pixelSize
+    y = Touch.offsetY touch / pixelSize
+    validX = clamp 0 (worldWidth - 1) x
+    validY = clamp 0 (worldHeight - 1) y
+  in
+    { x: validX, y: validY }
+
 data Action =
     Initialize
   | MouseMove MouseEvent
+  | TouchMove TouchEvent
   | ClearPreviousMousePosition
   | KeyUp KeyboardEvent
   | ActiveMaterialChanged Cell
@@ -129,6 +144,7 @@ render state =
           -- To enable firing of keyboard events. It doesn't work reliably though, as the canvas still has to be focused.
           HP.tabIndex 0,
           HE.onMouseMove MouseMove,
+          HE.onTouchMove TouchMove,
           HE.onMouseUp $ const ClearPreviousMousePosition,
           HE.onKeyUp KeyUp,
           HP.class_ $ ClassName "canvas",
@@ -229,6 +245,19 @@ handleAction (MouseMove e) = do
       }
   else
     pure unit
+
+handleAction (TouchMove e) = do
+  let
+    touches' = touches e
+    touch0 = TouchList.item 0 touches'
+    maybeTouchPos = touchPosToCoord <$> touch0
+  case maybeTouchPos of
+    Just touchPos -> do
+      H.modify_ \state ->
+        state {
+          cells = setCell state.activeMaterial state.cells touchPos
+        }
+    Nothing -> pure unit
 
 handleAction ClearPreviousMousePosition = do
   H.modify_ \state -> state { previousMousePos = Nothing }

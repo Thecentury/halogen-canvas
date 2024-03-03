@@ -24,6 +24,7 @@
   , "typelevel"
   , "unsafe-coerce"
   , "web-html"
+  , "web-touchevents"
   , "web-uievents"
   ]
 , packages = ./packages.dhall
