@@ -42,6 +42,8 @@ import Web.UIEvent.MouseEvent (altKey, buttons) as Mouse
 import Data.Tuple (Tuple(Tuple))
 import Web.HTML.Common (ClassName(..))
 import Data.Foldable (foldl)
+import Web.UIEvent.KeyboardEvent (altKey) as Keyboard
+import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 
 type MaterialSelectorSpec = {
   material :: Cell,
@@ -77,7 +79,8 @@ mousePosToCoord e =
 data Action =
     Initialize
   | MouseMove MouseEvent
-  | MouseUp MouseEvent
+  | ClearPreviousMousePosition
+  | KeyUp KeyboardEvent
   | ActiveMaterialChanged Cell
   | Tick
 
@@ -123,8 +126,11 @@ render state =
     [
       HH.div
         [
+          -- To enable firing of keyboard events. It doesn't work reliably though, as the canvas still has to be focused.
+          HP.tabIndex 0,
           HE.onMouseMove MouseMove,
-          HE.onMouseUp MouseUp,
+          HE.onMouseUp $ const ClearPreviousMousePosition,
+          HE.onKeyUp KeyUp,
           HP.class_ $ ClassName "canvas",
           style $ do
             CSS.width (px widthInPixels)
@@ -224,8 +230,15 @@ handleAction (MouseMove e) = do
   else
     pure unit
 
-handleAction (MouseUp _) = do
+handleAction ClearPreviousMousePosition = do
   H.modify_ \state -> state { previousMousePos = Nothing }
+
+handleAction (KeyUp e) = do
+  if Keyboard.altKey e then do
+    H.modify_ \state -> state { previousMousePos = Nothing }
+    liftEffect $ Console.log "Alt key up"
+  else
+    pure unit
 
 handleAction Tick = do
   cells <- H.gets (_.cells)
