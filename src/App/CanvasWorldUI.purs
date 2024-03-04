@@ -8,7 +8,6 @@ import App.MouseEvent (offsetX, offsetY) as Mouse
 import CSS (border, px, solid)
 import CSS.Geometry (height, width) as CSS
 import Color (black)
-import Control.Monad.Rec.Class (forever)
 import Data.Array as Array
 import Data.Int (rem)
 import Data.Int as Int
@@ -19,7 +18,7 @@ import DOM.HTML.Indexed.InputType (InputType(..))
 import Effect (Effect)
 import Effect (foreachE) as Effect
 import Effect.Aff (Milliseconds(..))
-import Effect.Aff (delay, forkAff) as Aff
+import Effect.Aff (delay) as Aff
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Console as Console
@@ -33,7 +32,6 @@ import Halogen.HTML as HH
 import Halogen.HTML.CSS (style)
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Halogen.Subscription as HS
 import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
@@ -64,7 +62,8 @@ materialSelectors = [
 type State = {
   cells :: Array Cell,
   activeMaterial :: Cell,
-  previousMousePos :: Maybe Coord
+  previousMousePos :: Maybe Coord,
+  updateScheduled :: Boolean
 }
 
 setCell :: Cell -> Array Cell -> Coord -> Array Cell
@@ -108,7 +107,8 @@ component =
       {
         cells: Array.replicate (worldWidth * worldHeight) Empty,
         activeMaterial: Concrete,
-        previousMousePos: Nothing
+        previousMousePos: Nothing,
+        updateScheduled: false
       },
       render,
       eval: H.mkEval H.defaultEval
@@ -217,13 +217,10 @@ renderer =
           GCanvas.fillRect ctx rect
 
     onResize :: Vec D2 Number -> Context2D -> Effect Context2D
-    onResize _size ctx =
-      pure ctx
+    onResize _size ctx = pure ctx
 
 handleAction :: forall cs o m. MonadAff m => Action → H.HalogenM State Action cs o m Unit
-handleAction Initialize = do
-    _ <- H.subscribe =<< timer Tick
-    pure unit
+handleAction Initialize = scheduleTick
 
 handleAction (MouseMove e) = do
   if Mouse.altKey e || Mouse.buttons e == 1 then do
@@ -243,6 +240,7 @@ handleAction (MouseMove e) = do
         previousMousePos = Just mousePos,
         cells = updatedCells
       }
+    scheduleTick
   else
     pure unit
 
@@ -257,6 +255,7 @@ handleAction (TouchMove e) = do
         state {
           cells = setCell state.activeMaterial state.cells touchPos
         }
+      scheduleTick
     Nothing -> pure unit
 
 handleAction ClearPreviousMousePosition = do
@@ -272,16 +271,24 @@ handleAction (KeyUp e) = do
 handleAction Tick = do
   cells <- H.gets (_.cells)
   let (Tuple iterations cells') = updateWorld cells
-  H.modify_ \state -> state { cells = cells' }
+  H.modify_ \state -> state { cells = cells', updateScheduled = false }
+  if cells /= cells' then do
+    scheduleTick
+  else
+    pure unit
   liftEffect $ Console.log $ "Iterations: " <> show iterations
 
 handleAction (ActiveMaterialChanged material) =
   H.modify_ \state -> state { activeMaterial = material }
 
-timer :: forall m a. MonadAff m => a -> m (HS.Emitter a)
-timer val = do
-  { emitter, listener } <- H.liftEffect HS.create
-  _ <- H.liftAff $ Aff.forkAff $ forever do
-    Aff.delay $ Milliseconds 100.0
-    H.liftEffect $ HS.notify listener val
-  pure emitter
+scheduleTick :: forall cs o m. MonadAff m => H.HalogenM State Action cs o m Unit
+scheduleTick = do
+  updateScheduled <- H.gets _.updateScheduled
+  if not updateScheduled then do
+    H.modify_ \state -> state { updateScheduled = true }
+    _ <- H.fork $ do
+      H.liftAff $ Aff.delay $ Milliseconds 100.0
+      handleAction Tick
+    pure unit
+  else
+    pure unit
