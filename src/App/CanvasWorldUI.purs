@@ -44,8 +44,10 @@ import Web.UIEvent.KeyboardEvent (altKey) as Keyboard
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.TouchEvent.TouchEvent (TouchEvent, touches)
 import Web.TouchEvent.TouchList as TouchList
-import App.HTML.Touch as Touch
 import Web.TouchEvent.Touch (Touch)
+import Web.Event.Event (preventDefault) as Event
+import Web.TouchEvent.TouchEvent (toEvent) as TouchEvent
+import Web.TouchEvent.Touch (clientX, clientY, pageX, pageY, screenX, screenY) as Touch
 
 type MaterialSelectorSpec = {
   material :: Cell,
@@ -82,8 +84,8 @@ mousePosToCoord e =
 touchPosToCoord :: Touch -> Coord
 touchPosToCoord touch =
   let
-    x = Touch.offsetX touch / pixelSize
-    y = Touch.offsetY touch / pixelSize
+    x = Touch.pageX touch / pixelSize
+    y = Touch.pageY touch / pixelSize
     validX = clamp 0 (worldWidth - 1) x
     validY = clamp 0 (worldHeight - 1) y
   in
@@ -245,10 +247,16 @@ handleAction (MouseMove e) = do
     pure unit
 
 handleAction (TouchMove e) = do
+  H.liftEffect $ Event.preventDefault $ TouchEvent.toEvent e
+
   let
     touches' = touches e
-    touch0 = TouchList.item 0 touches'
-    maybeTouchPos = touchPosToCoord <$> touch0
+    maybeTouch0 = TouchList.item 0 touches'
+    maybeTouchPos = touchPosToCoord <$> maybeTouch0
+  case maybeTouch0 of
+    Just touch0 ->
+      H.liftEffect $ Console.log $ "Touch move: " <> show ((Touch.clientX) touch0) <> ", " <> show ((Touch.clientY) touch0)
+    Nothing -> pure unit
   case maybeTouchPos of
     Just touchPos -> do
       H.modify_ \state ->

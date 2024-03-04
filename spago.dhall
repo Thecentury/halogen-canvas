@@ -21,6 +21,7 @@
   , "tuples"
   , "typelevel"
   , "unsafe-coerce"
+  , "web-events"
   , "web-html"
   , "web-touchevents"
   , "web-uievents"
